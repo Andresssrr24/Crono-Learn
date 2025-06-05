@@ -28,7 +28,7 @@ class PomodoroResponse(BaseModel):
     start_time: Optional[datetime] = None
     end_time: Optional[datetime] = None
     completed: Optional[bool] = False
-    task_name: Optional[int] = None
+    task_name: Optional[str] = None
 
     class Config:
         orm_mode = True
