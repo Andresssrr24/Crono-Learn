@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 class PomodoroCreate(BaseModel):
@@ -25,8 +25,8 @@ class PomodoroResponse(BaseModel):
     id: int
     timer: int
     rest_time: int
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    start_time: Optional[datetime] = datetime.now(timezone.utc)
+    end_time: Optional[datetime] = datetime.now(timezone.utc)
     completed: Optional[bool] = False
     task_name: Optional[str] = None
 

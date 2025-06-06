@@ -1,11 +1,12 @@
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 class StudyCreate(BaseModel):
     topic: str = Field(..., examples="Maths")
     study_time: int = Field(..., gt=0, examples=50)
     notes: Optional[str] = Field(None, examples="Solved some exercises")
+    timestamp: Optional[datetime] = Field(datetime.now(timezone.utc))
 
     class Config:
         schema_extra = {
