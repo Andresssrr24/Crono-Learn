@@ -1,5 +1,8 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Settings(BaseSettings):
     PROJECT_NAME: str =  "CronoLearn API"
@@ -9,7 +12,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379"
 
     class Config:
-        env_file = '/Users/Admin/Documents/Crono-Learn/backend/.env'
+        env_file = ".env"
         extra = "ignore"
 
 @lru_cache()

@@ -30,3 +30,14 @@ async def delete_pomodoro(db: AsyncSession, pomodoro_id: int):
         await db.delete(pomodoro)
         await db.commit()
     return pomodoro
+
+async def update_pomodoro(db: AsyncSession, pomodoro_id: int, pomodoro_data: dict):
+    pomodoro = await get_pomodoro_by_id(db, pomodoro_id)
+    if not pomodoro:
+        return None
+    for k, v in pomodoro.items():
+        setattr(pomodoro, k, v)
+    await db.commit()
+    await db.refresh(pomodoro)
+    return pomodoro
+        

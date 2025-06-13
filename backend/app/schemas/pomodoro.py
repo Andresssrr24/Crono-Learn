@@ -20,6 +20,7 @@ class PomodoroUpdate(BaseModel):
     task_name: Optional[bool]
     completed: Optional[bool]
     end_time: Optional[datetime]
+    status: str
 
 class PomodoroResponse(BaseModel):
     id: int
@@ -29,6 +30,8 @@ class PomodoroResponse(BaseModel):
     end_time: Optional[datetime] = datetime.now(timezone.utc)
     completed: Optional[bool] = False
     task_name: Optional[str] = None
+    status: str
+    user_id: str
 
     class Config:
         orm_mode = True
