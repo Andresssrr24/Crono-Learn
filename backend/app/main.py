@@ -1,23 +1,27 @@
 from fastapi import FastAPI
-from .api.v1.endpoints import pomodoro, stats, study, user
-from .core.config import get_settings
-from .db.base import init_models
-from .db.session import engine
+from contextlib import asynccontextmanager
+from app.api.v1.endpoints import user 
+from app.db.session import engine
+from app.db.base import Base 
 
-settings = get_settings()
-
+@asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_models()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
 
 app = FastAPI(
     title="CronoLearn",
     version="0.1.0",
-    description="CronoLearn API backend"
+    description="CronoLearn API backend",
+    lifespan=lifespan 
 )
 
-app.include_router(user.router, prefix='/api/v1/users', tags=['Users'])
+# Incluir routers
+app.include_router(user.router, prefix="/api/v1/users", tags=["Users"])
+app.include_router(user.router, prefix="/api/v1/pomodoro", tags=["Pomodoros"])
 
+# Ruta de prueba
 @app.get("/")
-def read_root():
-    return {"message" : "Welcome to CronoLearn"}
+async def root():
+    return {"message": "Welcome to CronoLearn"}

@@ -1,24 +1,10 @@
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel
+from typing import Optional
 
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str = Field(..., min_length=8)
+class UserOut(BaseModel):
+    id: str
+    emai: str
+    username: Optional[str]
 
-    class Config:
-        schema_extra = {
-            "example" : {
-                "email" : "user_email@example.com",
-                "password" : "examplepass!"
-            }
-        }
-
-class UserResponse(BaseModel):
-    id: int
-    email: EmailStr
-    
-    class Config:
+    class config:
         orm_mode = True
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str

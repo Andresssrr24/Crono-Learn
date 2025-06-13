@@ -2,7 +2,7 @@ from app.db.base import Base
 from typing import Optional
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, Integer, Boolean, DateTime
+from sqlalchemy import String, Integer, Boolean, DateTime, ForeignKey
 
 class Pomodoro(Base):
     __tablename__ = "pomodoros_history"
@@ -13,5 +13,6 @@ class Pomodoro(Base):
     start_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     end_time: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     completed: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
-    task_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)  
+    task_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("user.id"), nullable=False)
 
