@@ -19,7 +19,7 @@ app = FastAPI(
 
 # Incluir routers
 app.include_router(user.router, prefix="/api/v1/users", tags=["Users"])
-app.include_router(user.router, prefix="/api/v1/pomodoro", tags=["Pomodoros"])
+app.include_router(user.router, prefix="/api/v1/pomodoro", tags=["Pomodoro"])
 
 # Ruta de prueba
 @app.get("/")

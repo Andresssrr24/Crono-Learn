@@ -20,6 +20,8 @@ class PomodoroUpdate(BaseModel):
     task_name: Optional[bool]
     completed: Optional[bool]
     end_time: Optional[datetime]
+    last_resume_time: Optional[datetime]
+    worked_time: Optional[int]
     status: str
 
 class PomodoroResponse(BaseModel):
