@@ -21,7 +21,7 @@ async def pause_pomodoro(pomodoro_id: str, db: AsyncSession = Depends(get_db), e
         raise HTTPException(status_code=404, detail="Could not found pomodoro or user is not authorized")
     return pomodoro
 
-@router.post('/{pomodoro_id}/stop', respoonse_model=PomodoroResponse)
+@router.post('/{pomodoro_id}/stop', response_model=PomodoroResponse)
 async def stop_pomodor(pomodoro_id: str, db: AsyncSession = Depends(get_db), email: str = Depends(get_current_user_email)):
     service = PomodoroTimer(db)
     pomodoro = await service.stop(pomodoro_id=pomodoro_id, email=email)

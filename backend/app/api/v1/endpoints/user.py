@@ -33,6 +33,10 @@ async def get_current_user_email(request: Request):
 
     return email
 
-@router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 async def register_user(db: AsyncSession=Depends(get_db), email: str=Depends(get_current_user_email)):
     return await create_user_if_not_exists(db, email=email)
+
+@router.get("/")
+async def test():
+    return {"message": "User endpoint is working"}

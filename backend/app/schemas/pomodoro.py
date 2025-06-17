@@ -3,24 +3,40 @@ from datetime import datetime, timezone
 from typing import Optional
 
 class PomodoroCreate(BaseModel):
-    task_name: Optional[str] = Field(..., examples="CronoLearn project")
     timer: int = Field(..., examples=60)
     rest_time: Optional[int] = Field(..., examples=10)
+    start_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), examples="2025-07-17T12:00:00Z")
+    end_time: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc), examples="2025-07-17T12:30:00Z")
+    last_resume_time: Optional[datetime] = None
+    worked_time: Optional[int] = Field(default=0, examples=30)
+    completed: Optional[bool] = Field(default=False, examples=False)
+    task_name: Optional[str] = Field(..., examples="CronoLearn project")
+    status: str = Field(default="scheduled", examples="scheduled")
+    
 
-    class Config:
-        schema_extra = {
-            "example" : {
-                "task_name" : "math lesson",
-                "timer" : 120,
-                "rest_time" : 20
-            }
+    model_config = {
+        "json_schema_extra": {
+            "examples" : [
+                {
+                    "timer" : 60,
+                    "rest_time" : 10,
+                    "start_time" : "2025-07-17T12:00:00Z",
+                    "end_time" : "2025-07-17T12:30:00Z",
+                    "last_resume_time" : "2025-07-17T12:00:00Z",
+                    "worked_time" : 30,
+                    "completed" : False,
+                    "task_name" : "math lesson",
+                    "status" : "scheduled"
+                }
+            ]
         }
+    }
 
 class PomodoroUpdate(BaseModel):
     task_name: Optional[bool]
     completed: Optional[bool]
     end_time: Optional[datetime]
-    last_resume_time: Optional[datetime]
+    last_resume_time: Optional[datetime] 
     worked_time: Optional[int]
     status: str
 
