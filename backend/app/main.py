@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.api.v1.endpoints import user, pomodoro 
+from app.api.v1.endpoints import user, pomodoro, study
 from app.db.session import engine
 from app.db.base import Base 
 
@@ -19,6 +19,7 @@ app = FastAPI(
 
 app.include_router(user.router, prefix="/api/v1/users")
 app.include_router(pomodoro.router, prefix="/api/v1/pomodoro")
+app.include_router(study.router, prefix="/api/v1/study")
 
 @app.get("/")
 async def root():
