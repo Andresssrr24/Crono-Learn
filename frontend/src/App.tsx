@@ -1,12 +1,17 @@
-import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HomePage } from "./pages/Homepage";
+import { PomodoroPage } from "./pages/PomodoroPage";
 
 function App() {
   return (
-    <div>
-      <h1>Frontend</h1>
-      <p>si</p>
-    </div>
-  );
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<HomePage/>} />
+        <Route path="/pomodoro" element={<PomodoroPage/>} />
+        <Route path="/other-route" element={<HomePage/>} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
 
 export default App;
