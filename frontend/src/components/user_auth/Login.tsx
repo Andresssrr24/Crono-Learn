@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../services/supabase";
+import { registerUser } from "../../services/api/user";
 
 export function Login() {
     const navigate = useNavigate();
@@ -21,6 +22,13 @@ export function Login() {
             setError(error.message);
         } else {
             navigate("/");
+        }
+
+        try {
+            await registerUser();
+            navigate("/");
+        } catch (err: any) {
+            setError(err.message);
         }
     };
 
@@ -52,7 +60,7 @@ export function Login() {
                 <div className="mt-10">
                     <button
                         type="submit"
-                        className="w-full bg-slate-950 text-white p-2 rounded-xl hover:bg-blue-950"
+                        className="w-full bg-emerald-950 border text-white p-2 rounded-xl hover:bg-emerald-800"
                     >
                         Log in
                     </button>
