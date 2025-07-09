@@ -1,7 +1,7 @@
 import { supabase } from "../supabase";
 import axios from "axios";
 
-const BACKEND_URL = "http://localhost:8000/api/v1";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 export async function registerUser() {
     const {
@@ -17,18 +17,21 @@ export async function registerUser() {
 
     if (!token) throw new Error("No token found, please log in first.");
 
-    const res = await fetch(`${BACKEND_URL}/users/`, {
-        method: "POST",
-         headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-         },
-    });
+    try {
+        const response = await axios.post(
+            `${BACKEND_URL}/users/register`,
+            {},
+            {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+            }
+        );
 
-    if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.detail || "Error registering user, try again later.");
+        return response.data;
+    } catch (err: any) {
+        const message = err.response?.data?.detail || err.message || "Error registering user.";
+        throw new Error(message);
     }
-
-    return res.json();
 }

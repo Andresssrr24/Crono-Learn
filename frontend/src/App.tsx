@@ -4,6 +4,7 @@ import { PomodoroPage } from "./pages/PomodoroPage";
 import { SideNav } from "./components/partials/SideNav";
 import { SignInPage } from "./pages/SignIn";
 import { SignUpPage } from "./pages/SignUp";
+import { Toaster } from "react-hot-toast";
 
 function AppContent() {
   const location = useLocation();
@@ -23,6 +24,8 @@ function AppContent() {
           <Route path="/sign-up" element={<SignUpPage />} />
         </Routes>
       </div>
+
+      <Toaster />
     </div>
   );
 }
