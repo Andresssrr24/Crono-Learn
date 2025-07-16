@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../../services/supabase";
 import toast from "react-hot-toast";
-import { Link } from "react-router-dom";
 
 export function Register() {
     const [email, setEmail] = useState("");

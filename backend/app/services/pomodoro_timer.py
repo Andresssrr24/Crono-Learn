@@ -1,7 +1,9 @@
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models.pomodoro import Pomodoro
+from app.core.auth import get_current_user_id
 from sqlalchemy.future import select
+
 class PomodoroTimer:
     def __init__(self, db: AsyncSession, user_id: str):
         self.db = db
@@ -14,16 +16,15 @@ class PomodoroTimer:
             raise ValueError("Rest timer cannot be negative.")
 
         new_pomodoro = Pomodoro(
-            user_id = self.user_id,
             timer=timer,
             start_time=datetime.now(),
             rest_time=rest_time,
             task_name=task_name,
-            status=status,
             worked_time=0,
-            last_resume_time=None
+            last_resume_time=None,
+            user_id=self.user_id
         )
-        self.db_add(new_pomodoro)
+        self.db.add(new_pomodoro)
         await self.db.commit()
         await self.db.refresh(new_pomodoro)
         return new_pomodoro

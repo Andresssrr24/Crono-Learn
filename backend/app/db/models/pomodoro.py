@@ -16,7 +16,7 @@ class Pomodoro(Base):
     worked_time: Mapped[int] = mapped_column(Integer, nullable=True)
     completed: Mapped[bool] = mapped_column(Boolean, nullable=True)
     task_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), nullable=False)  # possible values: "running", "stopped", "finished", "scheduled"
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="scheduled", nullable=True)  # possible values: "running", "stopped", "finished", "scheduled"
+    user_id: Mapped[str] = mapped_column(nullable=False)
 
 

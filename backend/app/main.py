@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from app.api.v1.endpoints import user, pomodoro, study
 from app.db.session import engine
@@ -15,6 +16,14 @@ app = FastAPI(
     version="0.1.0",
     description="CronoLearn API backend",
     lifespan=lifespan 
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(user.router, prefix="/api/v1/users")
