@@ -24,11 +24,11 @@ export function PomodoroTimer({
   const [customTimer, setCustomTimer] = useState(timer);
   const [customRestTime, setCustomRestTime] = useState(rest_time);
 
-
   // change duration when changing mode
   useEffect(() => {
-    setSecondsLeft(isWorkMode ? timer : rest_time);
-  }, [isWorkMode]);
+    const newTime = isWorkMode ? customTimer * 60 : customRestTime * 60;
+    setSecondsLeft(newTime);
+  }, [isWorkMode, customTimer, customRestTime]);
 
   // timer
   useEffect(() => {
@@ -41,14 +41,23 @@ export function PomodoroTimer({
     return () => clearInterval(intervalId);
   }, [isRunning, secondsLeft]);
 
-  // rest or work mode when finished
+  {/*// rest or work mode when finished
   useEffect(() => {
     if (secondsLeft === 0 && isRunning) {
       setTimeout(() => {
         setIsWorkMode((prev) => !prev);
-      }, 1000); // 1 segundo de pausa antes de cambiar
+      }, 6000); // 6 pause seconds before changing state
     }
-  }, [secondsLeft, isRunning]);
+  }, [secondsLeft, isRunning]); 
+  // Interesting to implement later as an option between manual and automatic pomodoro restart 
+  */} 
+
+  // Manually start timer and rest pauses
+  useEffect(() => {
+    if (secondsLeft === 0 && isRunning) {
+      setIsRunning(false);
+    }
+  }, [secondsLeft,  isRunning]);
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
@@ -109,6 +118,7 @@ export function PomodoroTimer({
           <label className='block text-sm mb-2'>⏱ Worktime (min):</label>
           <input type="number" 
             min={1} 
+            max={240}
             value={customTimer} 
             onChange={(e) => setCustomTimer(Number(e.target.value))}
             className='w-full px-2 py-1 mb-3 rounded bg-stone-700 text-white'
@@ -116,7 +126,8 @@ export function PomodoroTimer({
 
            <label className='block text-sm mb-2'>⏱ Restime (min):</label>
            <input type="number" 
-            min={1} 
+            min={1}
+            max={240} 
             value={customRestTime} 
             onChange={(e) => setCustomRestTime(Number(e.target.value))}
             className='w-full px-2 py-1 mb-3 rounded bg-stone-700 text-white'
@@ -169,6 +180,25 @@ export function PomodoroTimer({
       </button>
 
       {secondsLeft === 0 && <p className="text-yellow-400 mt-2">⏰ Time's up!</p>}
+
+      {!isRunning && secondsLeft === 0 && (
+      <button
+          onClick={() => {
+            if (!isWorkMode) {
+              // Start pomodoro -> show customization 
+              setShowCustomization(true);
+            } else {
+              // Start rest pause
+              setIsWorkMode(false);
+              setSecondsLeft(rest_time * 60);
+              setIsRunning(true);
+            }
+          }}
+          className="bg-blue-600 text-white px-4 py-2 mt-4 rounded hover:bg-blue-700 transition"
+        >
+          Start {isWorkMode ? "rest" : "pomodoro (customize)"}
+        </button>
+      )}
     </div>
   );
 }
