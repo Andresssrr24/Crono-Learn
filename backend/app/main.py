@@ -26,9 +26,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(user.router, prefix="/api/v1/users")
-app.include_router(pomodoro.router, prefix="/api/v1/pomodoro")
-app.include_router(study.router, prefix="/api/v1/study")
+app.include_router(user.router, prefix="/users")
+app.include_router(pomodoro.router, prefix="/pomodoro")
+app.include_router(study.router, prefix="/study-records")
 
 @app.get("/")
 async def root():
