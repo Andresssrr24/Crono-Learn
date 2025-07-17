@@ -41,7 +41,7 @@ export function SideNav() {
     };
 
     return (
-        <nav className={`fixed top-0 left-0 h-full bg-teal-950 border rounded-xl text-white transition-transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        <nav className={`fixed top-4 left-4  h-[90vh] bg-teal-950 border rounded-xl text-white transition-transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
             <div className="flex flex-col h-full">
                 <ul className="flex flex-col space-y-2">
                     <li>
@@ -49,6 +49,9 @@ export function SideNav() {
                     </li>
                     <li>
                         <Link to="/pomodoro" className="block p-2 rounded-lg hover:bg-emerald-900">Pomodoro</Link>
+                    </li>
+                    <li>
+                        <Link to="/my-studies" className="block p-2 rounded-lg hover:bg-emerald-900">My studies</Link>
                     </li>
                 </ul>
 

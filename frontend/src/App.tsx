@@ -4,6 +4,7 @@ import { PomodoroPage } from "./pages/PomodoroPage";
 import { SideNav } from "./components/partials/SideNav";
 import { SignInPage } from "./pages/SignIn";
 import { SignUpPage } from "./pages/SignUp";
+import { StudiesPage } from "./pages/StudiesPage";
 import { Toaster } from "react-hot-toast";
 
 function AppContent() {
@@ -19,7 +20,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/pomodoro" element={<PomodoroPage />} />
-          <Route path="/other-route" element={<HomePage />} />
+          <Route path="/my-studies" element={<StudiesPage />} />
           <Route path="/sign-in" element={<SignInPage />} />
           <Route path="/sign-up" element={<SignUpPage />} />
         </Routes>
