@@ -1,22 +1,24 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models.study import Study
 from sqlalchemy.future import select
+from app.schemas.study import StudyCreate
 
 class StudyService:
-    def __init__(self, db: AsyncSession, user_email: str):
+    def __init__(self, db: AsyncSession, user_id: str):
         self.db = db
-        self.user_id = user_email
+        self.user_id = user_id
 
-    async def create_study_record(self, topic: str, study_time: int, notes: str = None):
-        if study_time <= 0:
+    async def create_study_record(self, data: StudyCreate):
+        if data.study_time <= 0:
             raise ValueError("Study time must be greater than 0.")
 
         new_study_record = Study(
             user_id=self.user_id,
-            topic=topic,
-            study_time=study_time,
-            notes=notes
+            topic=data.topic,
+            study_time=data.study_time,
+            notes=data.notes
         )
+
         self.db.add(new_study_record)
         await self.db.commit()
         await self.db.refresh(new_study_record)
@@ -25,10 +27,13 @@ class StudyService:
     async def get_study_records(self):
         query = select(Study).where(Study.user_id == self.user_id)
         result = await self.db.execute(query)
-        return result.scalars().all() 
-    
+        return result.scalars().all()
+
     async def delete_study_record(self, record_id: int):
-        query = select(Study).where(Study.id == record_id, Study.user_id == self.user_id)
+        query = select(Study).where(
+            Study.id == record_id,
+            Study.user_id == self.user_id
+        )
         result = await self.db.execute(query)
         study_record = result.scalar_one_or_none()
 

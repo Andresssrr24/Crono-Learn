@@ -28,7 +28,7 @@ app.add_middleware(
 
 app.include_router(user.router, prefix="/users")
 app.include_router(pomodoro.router, prefix="/pomodoro")
-app.include_router(study.router, prefix="/study-records")
+app.include_router(study.router, prefix="/my-studies")
 
 @app.get("/")
 async def root():

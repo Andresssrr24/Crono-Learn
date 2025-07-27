@@ -26,7 +26,7 @@ export async function createPomodoro({
     try {
         console.log({ task_name, timer, rest_time });
         const response = await axios.post(
-            `${BACKEND_URL}/pomodoro/`,
+            `${BACKEND_URL}pomodoro/`,
             { task_name, timer, rest_time, status },
             {
                 headers: {

@@ -61,7 +61,7 @@ export function Login() {
                 <div className="mt-10">
                     <button
                         type="submit"
-                        className="w-full bg-emerald-950 border text-white p-2 rounded-xl hover:bg-emerald-800"
+                        className="w-full bg-emerald-950 text-white p-2 rounded-xl hover:bg-emerald-800"
                     >
                         Log in
                     </button>

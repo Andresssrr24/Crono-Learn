@@ -2,8 +2,10 @@ import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "../../services/supabase";
 import { type Session } from "@supabase/supabase-js";
+import { useNavigate } from "react-router-dom";
  
 export function SideNav() {
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] =  useState(false);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);    
     const [session, setSession] = useState<Session | null>(null);
@@ -38,10 +40,11 @@ export function SideNav() {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         setIsDropdownOpen(false);
+        navigate('/')
     };
 
     return (
-        <nav className={`fixed top-4 left-4  h-[90vh] bg-teal-950 border rounded-xl text-white transition-transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        <nav className={`fixed top-4 left-4  h-[90vh] bg-teal-950 border border-emerald-700 rounded-xl text-white transition-transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
             <div className="flex flex-col h-full">
                 <ul className="flex flex-col space-y-2">
                     <li>

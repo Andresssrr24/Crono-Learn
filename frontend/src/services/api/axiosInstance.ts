@@ -1,11 +1,14 @@
 import axios from "axios";
+import { supabase } from "../supabase";
 
 const axiosInstance = axios.create({
   baseURL: "http://localhost:8000/",
+  withCredentials: false,
 });
 
-axiosInstance.interceptors.request.use((config) => {
-    const token = localStorage.getItem("access");
+axiosInstance.interceptors.request.use(async (config) => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -13,9 +16,5 @@ axiosInstance.interceptors.request.use((config) => {
   },
   (error) => Promise.reject(error)
 );
-
-// Use axiosInstance for API requests
-axiosInstance.get("/study")
-  .then(res => console.log(res.data));
 
 export default axiosInstance;

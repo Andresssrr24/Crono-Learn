@@ -53,24 +53,38 @@ export function StudyRecords() {
     return <p className="text-center text-gray-600 dark:text-gray-400">No study records found yet.</p>;
   }
 
+  // "Randomize" cards colors
+  const colors = [
+    "bg-green-700",
+    "bg-green-800",
+    "bg-green-900",
+    "bg-emerald-700",
+    "bg-emerald-600",
+    "bg-emerald-900",
+    "bg-teal-800",
+    "bg-teal-900",
+    "bg-teal-950"
+  ];
+
   return (
-    <div className="w-full max-w-5xl grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-      {records.map((record) => (
-        <div
-          key={record.id}
-          className="bg-white dark:bg-gray-800 shadow-md rounded-xl p-4 hover:shadow-xl transition duration-300"
-        >
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">
-            {record.topic || "Untitled Topic"}
-          </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-            Study Time: {record.study_time ?? 0} min
-          </p>
-          <p className="text-sm text-gray-700 dark:text-gray-200 mt-2">
-            Notes: {record.notes}
-          </p>
-        </div>
-      ))}
+    // Pinterest-stlye columns 
+    <div className="ml-30 columns-2 sm:columns-3 lg:columns-5 gap-6 mt-4">
+      {records.map((record) => {
+        const randomColor = colors[Math.floor(Math.random() * colors.length)];
+        return (
+          <div
+            key={record.id}
+            className={`${randomColor} shadow-md border rounded-xl p-4 hover:shadow-xl transition duration-300 mb-6 break-inside-avoid`}
+          >
+            <h3 className="text-lg font-semibold text-gray-100">
+              {record.topic || "Untitled Topic"}
+            </h3>
+            <p className="text-sm text-gray-300 mt-1">
+              Study Time: {record.study_time ?? 0} min
+            </p>
+            <p className="text-sm text-gray-200 mt-2">Notes: {record.notes}</p>
+          </div>
+        );
+      })}
     </div>
-  );
-}
+)};
