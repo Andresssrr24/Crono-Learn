@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPomodoro, updatePomodoro } from '../services/api/pomodoro';
 import { useNavigate } from 'react-router-dom';
+import { CompletedPomodoroNotif } from './partials/CompletedPomodoroNotif';
 
 interface PomodoroTimerProps {
   timer?: number;   // in seconds
@@ -55,10 +56,24 @@ export function PomodoroTimer({
 
   // Manually start timer and rest pauses
   useEffect(() => {
-    if (secondsLeft === 0 && isRunning) {
-      setIsRunning(false);
+  if (secondsLeft === 0 && isRunning) {
+    setIsRunning(false);
+
+    if (isWorkMode) {
+      const totalSeconds = customTimer * 60;
+      const workedSeconds = totalSeconds - secondsLeft; // en este caso será totalSeconds
+      let workedMinutes = Math.floor(workedSeconds / 60);
+
+      // Si trabajó menos de 1 minuto, igual guardamos 1
+      if (workedMinutes < 1) {
+        workedMinutes = 1;
+      }
+
+      CompletedPomodoroNotif(workedMinutes, customTaskName || task_name);
     }
-  }, [secondsLeft,  isRunning]);
+  }
+}, [secondsLeft, isRunning, isWorkMode, customTimer, customTaskName, task_name]);
+
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
