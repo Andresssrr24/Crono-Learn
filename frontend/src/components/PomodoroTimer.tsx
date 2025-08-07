@@ -61,10 +61,9 @@ export function PomodoroTimer({
 
     if (isWorkMode) {
       const totalSeconds = customTimer * 60;
-      const workedSeconds = totalSeconds - secondsLeft; // en este caso será totalSeconds
+      const workedSeconds = totalSeconds - secondsLeft;
       let workedMinutes = Math.floor(workedSeconds / 60);
 
-      // Si trabajó menos de 1 minuto, igual guardamos 1
       if (workedMinutes < 1) {
         workedMinutes = 1;
       }
@@ -73,7 +72,6 @@ export function PomodoroTimer({
     }
   }
 }, [secondsLeft, isRunning, isWorkMode, customTimer, customTaskName, task_name]);
-
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);

@@ -6,6 +6,7 @@ import { SignInPage } from "./pages/SignIn";
 import { SignUpPage } from "./pages/SignUp";
 import { StudiesPage } from "./pages/StudiesPage";
 import { Toaster } from "react-hot-toast";
+import { AgentPage } from "./pages/AgentPage";
 
 function AppContent() {
   const location = useLocation();
@@ -23,6 +24,7 @@ function AppContent() {
           <Route path="/my-studies" element={<StudiesPage />} />
           <Route path="/sign-in" element={<SignInPage />} />
           <Route path="/sign-up" element={<SignUpPage />} />
+          <Route path="/agent" element={<AgentPage />} />
         </Routes>
       </div>
 
