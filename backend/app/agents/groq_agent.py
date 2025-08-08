@@ -22,6 +22,14 @@ llm = ChatGroq(
 # Start a pomodoro
 @tool
 def create_pomodoro(input: dict) -> str:
+    '''Create a pomodoro. Expected input:
+    {
+        'timer': 10,
+        'rest_time': 5,
+        'task_name': "math lesson"m
+        'token': "user_token"
+    }
+    '''
     try:
         timer = input['timer']
         rest_time = input['rest_time']
@@ -52,7 +60,7 @@ agent = initialize_agent(
     verbose=True
 )
 
-def process_user_message(msg: str) -> str:
-    return agent.run(msg)
+def process_user_message(msg: str, token: str) -> str:
+    return agent.invoke({"prompt": msg, "token": token})
 #for chunk in llm.stream(messages): # ? "stream" AI response
     #print(chunk.text(), end="")
