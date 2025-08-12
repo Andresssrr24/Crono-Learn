@@ -7,6 +7,7 @@ from langchain.tools import tool
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.schema.runnable import RunnableParallel, RunnablePassthrough
+from pydantic import BaseModel, Field
 
 load_dotenv()
 llm = ChatGroq(
@@ -22,48 +23,58 @@ llm = ChatGroq(
 # Start a pomodoro
 @tool
 def create_pomodoro_tool(params: dict) -> str:
-    '''Create a pomodoro for user on backend '''
-    user_input = params.get("input", "")
-    token = params.get("token", "")
+    '''Create a pomodoro with parameters: timer (required in minutes), rest_time (optional), and task_name (optional).
+    Always require explicit time duration. Example inputs:
+    - "25 minute pomodoro for coding"
+    - "Focus session: 50min work, 10min break"  
+    '''
+
+    user_input = params.get("input", "").strip()
+    token = params.get("token", "").strip()
 
     if not token:
         return "Error: Authentication token missing"
 
     # Extract structured data from user prompt
-    data_extraction =  PromptTemplate.from_template("""
-         Extract pomodoro parameters from this input: {input}
-        Return ONLY JSON with these keys:
-        - timer: number (in minutes, required)
-        - rest_time: number (in minutes, optional)
-        - task_name: string (optional)
+    extraction_prompt =  PromptTemplate.from_template("""
+        Extract pomodoro parameters from: {input}
+        
+        Return STRICT JSON with:
+        - timer: number (minutes, required)
+        - rest_time: number (minutes, required)
+        - task_name: string
+        - Must follow this format: Action Input: {"key": "value"}
         
         Rules:
-        1. If rest_time missing, calculate as half of timer
-        2. If timer missing, return null
-        3. Keep task_name empty if not specified
+        1. Default rest_time = timer/2
+        2. If timer not found, return null for all fields
+        3. Clean task_name (remove time references)
                                                         
-        Example outputs:
-        Good input: "25min work on math" -> {{"timer": 30, "rest_time": 15, "task_name": "Math lessons"}}
-        Bad input: "Start pomodoro:" -> {{"timer": null, "rest_time": null, task_name: ""}}
+        Examples:
+        - "25min math" → {{"timer": 10, "rest_time": 5, "task_name": "math"}}
+        - "No time specified" → {{"timer": null, "rest_time": null, "task_name": ""}}
     """)
     
     extraction_chain = (
-        RunnableParallel({"input": RunnablePassthrough})
-        | data_extraction
-        | JsonOutputParser
+        extraction_prompt
+        | ChatGroq(temperature=0) # Cold model for accurate extraction
+        | JsonOutputParser()
     )
 
     try:
-        extraction = extraction_chain.invoke(user_input)
+        extraction = extraction_chain.invoke({"input": user_input})
         
-        # Call backend
-        if not extraction.get("timer"):
-            return "Please provide working rime duration"
+        if not extraction or extraction.get("timer") is None:
+            return "Please provide working time duration"
         
         timer = float(extraction['timer'])
+        if timer <= 0:
+            return "Please provide a valid working time duration"
+        
         rest_time = float(extraction.get('rest_time', timer/2))
-        task_name = extraction.get("task_name", "")
-
+        task_name = extraction.get("task_name", "").strip()[:50] # Lenght limit
+        
+        # Call backend
         response = requests.post(
             "http://localhost:8000/pomodoro/", 
             json={
@@ -71,15 +82,21 @@ def create_pomodoro_tool(params: dict) -> str:
                 "rest_time": rest_time,
                 "task_name": task_name
             },
-            headers = {"Authorization": f"Bearer {token}"}
+            headers = {"Authorization": f"Bearer {token}"},
+            timeout=10
         )
 
         if response.status_code == 200:
-            return f"👍🏼 Pomodoro created:  {timer}min work, {rest_time}min rest | {task_name or 'Unnamed'}"
+            return f"Pomodoro created:  {timer}min work, {rest_time}min rest | {task_name or 'General'}"
         else:
-            return f"Error while creating pomodoro: {response.text}"
+            return f"Error while creating pomodoro: {response.text[:150]}"
+        
+    except requests.exceptions.RequestException as e:
+        return "Connection error: Couldn't contact server."
+    except ValueError as e:
+        return "Format error: Times must be numbers."
     except Exception as e:
-        return f"Error while creating pomodoro: {str(e)}"
+        return f"Unexpected error: {str(e)[:100]}"
 
 tools = [create_pomodoro_tool]
 
@@ -128,12 +145,13 @@ agent_executor = AgentExecutor(
     agent=agent,
     tools=tools,
     verbose=True,
-    handle_parsing_errors=True,
+    handle_parsing_errors=lambda _: "Oops, something went wrong, please rephrase your question.",
     max_iterations=1, #! Change to 2 when agent works well
-    early_stopping_method="generate" # Force generate response even if reaches iteration threshold
+    #early_stopping_method="generate" # Force generate response even if reaches iteration threshold
 )
 
-def process_user_message(msg: str, token: str) -> str:
-    return agent_executor.invoke({"input": msg, "token": token})["output"]
+#def process_user_message(msg: str, token: str) -> str:
+    #return agent_executor.invoke({"input": msg, "token": token})["output"]
+
 #for chunk in llm.stream(messages): # ? "stream" AI response
     #print(chunk.text(), end="")

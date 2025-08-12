@@ -70,7 +70,7 @@ export function AgentChat() {
             >
               <div className={`max-w-xs md:max-w-md rounded-lg px-4 py-2 ${
                 msg.sender === "user" 
-                  ? "bg-blue-500 text-white" 
+                  ? "bg-emerald-600 text-white" 
                   : "bg-gray-200 text-gray-800"
               }`}>
                 <strong>{msg.sender === "user" ? "You" : "Agent"}:</strong> {msg.text}
