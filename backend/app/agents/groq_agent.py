@@ -2,14 +2,13 @@ import os
 import requests
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
-from langchain.agents import initialize_agent
+from langchain.agents import create_react_agent, AgentExecutor
 from langchain.tools import tool
-from langchain.prompts import ChatPromptTemplate
+from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain.schema.runnable import RunnableParallel, RunnablePassthrough
 
 load_dotenv()
-
 llm = ChatGroq(
     api_key=os.getenv('GROQ_API_KEY'),
     model="openai/gpt-oss-120b",
@@ -31,7 +30,7 @@ def create_pomodoro_tool(params: dict) -> str:
         return "Error: Authentication token missing"
 
     # Extract structured data from user prompt
-    data_extraction =  ChatPromptTemplate.from_template("""
+    data_extraction =  PromptTemplate.from_template("""
          Extract pomodoro parameters from this input: {input}
         Return ONLY JSON with these keys:
         - timer: number (in minutes, required)
@@ -84,14 +83,57 @@ def create_pomodoro_tool(params: dict) -> str:
 
 tools = [create_pomodoro_tool]
 
-agent = initialize_agent(
-    tools=tools,
+# Agent initial prompt #! When adding more tools, this prompt has to change.
+initial_prompt_template = """You are Cronos, an agent who has acces to the following tools:
+
+{tools}
+
+The available tools are: {tool_names}
+
+After you use a tool, an observation will be provided to you:
+'''
+Observation: Result of the tool
+'''
+
+You will use a thought-action-observation cycle until you have enough information to respond to the user's request directly.
+When you have the final answer, respond in this format:
+'''
+Thought: I know the answer
+Final answer: The final answer to the original query.
+'''
+
+IMPORTANT:
+- If you DO NOT need tools, answer EXACTLY like this:
+'''
+Thought: I do not need to use tools
+Final Answer: [your response directly here]
+'''
+
+- If you need tools, use the standard format thought-action-observation.
+
+Let's start:
+Question: {input}
+{agent_scratchpad}
+"""
+
+initial_prompt = PromptTemplate.from_template(initial_prompt_template, partial_variables={"tool_names": ", ".join([t.name for t in tools])})
+
+agent = create_react_agent(
     llm=llm,
-    agent='zero-shot-react-description',
-    verbose=True
+    tools=tools,
+    prompt=initial_prompt
+)
+
+agent_executor = AgentExecutor(
+    agent=agent,
+    tools=tools,
+    verbose=True,
+    handle_parsing_errors=True,
+    max_iterations=1, #! Change to 2 when agent works well
+    early_stopping_method="generate" # Force generate response even if reaches iteration threshold
 )
 
 def process_user_message(msg: str, token: str) -> str:
-    return agent.invoke({"input": msg, "token": token})["output"]
+    return agent_executor.invoke({"input": msg, "token": token})["output"]
 #for chunk in llm.stream(messages): # ? "stream" AI response
     #print(chunk.text(), end="")
