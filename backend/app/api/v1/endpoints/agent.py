@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Header, HTTPException
-from app.agents.groq_agent import process_user_message
+from app.agents.pomodoro_agent import process_user_message
 from pydantic import BaseModel
 
 router = APIRouter()
