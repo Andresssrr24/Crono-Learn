@@ -32,7 +32,7 @@ prompt_template = """You are Cronos, an expert time management AI assistant. You
 2. If missing core duration: DO NOT use tools, respond politely and continue conversation.
 
 **Valid examples:**
-- "25min math": {{"timer": 25, "rest_time": null, "task_name": "math"}}
+- "25min math": {{"timer": 25, "rest_time": 12.5, "task_name": "math"}}
 - "50min Pomodoro with 10min break": {{"timer": 50, "rest_time": 10, "task_name": ""}}
 - "No duration specified": {{"timer": null, "rest_time": null, "task_name": "", "response": "[answer politely.]"}}
 
@@ -49,7 +49,7 @@ Final Answer: [direct response here]
 **Tool usage format:**
 Thought: [Parameter analysis]
 Action: [tool_name]
-Action Input: {{"timer": [value], "rest_time": [value|null], "task_name": "[text]"}}
+Action Input: {{"timer": [value], "rest_time": [value|timer/2   ], "task_name": "[text]"}}
 
 **Current interaction**
 Let's start:
@@ -68,66 +68,71 @@ llm = ChatGroq(
 # Tools
 # Pomodoro tools
 # Start a pomodoro
-@tool
-def create_pomodoro_tool(params: str) -> str:
-    '''Create a pomodoro timer with parameters: timer (required in minutes), rest_time (optional), and task_name (optional).
-    Always require explicit time duration. Example inputs:
-    - "25 minute pomodoro for coding"
-    - "Focus session: 50min work, 10min break"  
-    '''
-    try:
-        # Parse the JSON string
-        params_dict = json.loads(params)
-        
-        # Validate required fields
-        timer = float(params_dict['timer'])
-        if timer <= 0:
-            return "Error: Invalid duration"
+def make_create_pomodoro_tool(token: str):
+    @tool
+    def create_pomodoro_tool(params: str) -> str:
+        '''
+        Create a pomodoro timer with parameters: timer (required, in minutes),
+        rest_time (optional, in minutes), and task_name (optional). 
+        '''
+        try:
+            # Parse the JSON string
+            params_dict = json.loads(params)
             
-        rest_time = float(params_dict.get('rest_time', timer/2)) 
-        task_name = params_dict.get('task_name', '')[:50]
+            # Validate required fields
+            timer = params_dict.get('timer')
+            if timer is None:
+                return "Error: Missing timer duration"
+            timer = float(timer) * 60.0
+
+            if timer <= 0:
+                return "Error: Invalid duration"
+                
+            rest_time = params_dict.get('rest_time') 
+            rest_time = float(rest_time * 60) if rest_time is not None else timer / 2.0
+            task_name = params_dict.get('task_name', 'General')[:50]
+            
+            # Pomodoro endpoint call
+            response = requests.post(
+                "http://localhost:8000/pomodoro/",
+                json={
+                    "timer": timer,
+                    "rest_time": rest_time,
+                    "task_name": task_name
+                },
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=70
+            )
+            response.raise_for_status()
+            
+            return f"Created: {timer/60:.0f}min work, {rest_time/60:.0f}min break | {task_name}"
         
-        # Pomodoro endpoint call
-        response = requests.post(
-            "http://localhost:8000/pomodoro/",
-            json={
-                "timer": timer,
-                "rest_time": rest_time,
-                "task_name": task_name
-            },
-            headers={"Authorization": f"Bearer {'user_token'}"},
-            timeout=10
-        )
-        
-        return f"Created: {timer}min work, {rest_time}min break | {task_name or 'General'}"
-    
-    except json.JSONDecodeError:
-        return "Error: Invalid parameters format"
-    except KeyError:
-        return "Error: Missing work_duration"
-    except Exception as e:
-        return f"Error: {str(e)[:100]}"
+        except json.JSONDecodeError:
+            return "Error: Invalid parameters format"
+        except KeyError:
+            return "Error: Missing work_duration"
+        except Exception as e:
+            return f"Error: {str(e)[:100]}"
 
-tools = [create_pomodoro_tool]
-
-output_parser = JsonOutputParser()
-
-agent = create_react_agent(
-    llm=llm,
-    tools=tools,
-    prompt=PromptTemplate.from_template(prompt_template)
-)
-
-agent_executor = AgentExecutor(
-    agent=agent,
-    tools=tools,
-    verbose=True,
-    handle_parsing_errors=True,#lambda _: "Oops, something went wrong, please rephrase your question.",
-    max_iterations=2,
-    #early_stopping_method="generate" # Force generate response even if reaches iteration threshold
-)
+    return create_pomodoro_tool
 
 def process_user_message(msg: str, token: str) -> str:
+    tools = [make_create_pomodoro_tool(token)]
+    agent = create_react_agent(
+        llm=llm,
+        tools=tools,
+        prompt=PromptTemplate(template=prompt_template, input_variables=["input", "agent_scratchpad", "tools", "tool_names"])
+    )
+
+    agent_executor = AgentExecutor(
+        agent=agent,
+        tools=tools,
+        verbose=True,
+        handle_parsing_errors=True,#lambda _: "Oops, something went wrong, please rephrase your question.",
+        max_iterations=2,
+        #early_stopping_method="generate" # Force generate response even if reaches iteration threshold
+    )
+
     return agent_executor.invoke({"input": msg, "token": token})["output"]
 
 #for chunk in llm.stream(messages): # ? "stream" AI response
