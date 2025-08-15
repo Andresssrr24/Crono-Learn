@@ -29,12 +29,12 @@ prompt_template = """You are Cronos, an expert time management AI assistant. You
    - `timer` (required, in minutes)
    - `rest_time` (optional, in minutes)
    - `task_name` (optional)
-2. If missing core duration: DO NOT use tools, request clarification
+2. If missing core duration: DO NOT use tools, respond politely and continue conversation.
 
 **Valid examples:**
 - "25min math": {{"timer": 25, "rest_time": null, "task_name": "math"}}
 - "50min Pomodoro with 10min break": {{"timer": 50, "rest_time": 10, "task_name": ""}}
-- "No duration specified": {{"timer": null, "rest_time": null, "task_name": "", "response": "How long should this session last? (e.g., 25min)"}}
+- "No duration specified": {{"timer": null, "rest_time": null, "task_name": "", "response": "[answer politely.]"}}
 
 **Available tools:**
 {tools}
@@ -49,7 +49,7 @@ Final Answer: [direct response here]
 **Tool usage format:**
 Thought: [Parameter analysis]
 Action: [tool_name]
-Action Input: {{"work_duration": [value], "break_duration": [value|null], "task_name": "[text]"}}
+Action Input: {{"timer": [value], "rest_time": [value|null], "task_name": "[text]"}}
 
 **Current interaction**
 Let's start:
@@ -69,47 +69,44 @@ llm = ChatGroq(
 # Pomodoro tools
 # Start a pomodoro
 @tool
-def create_pomodoro_tool(params: str, token: str) -> str:
+def create_pomodoro_tool(params: str) -> str:
     '''Create a pomodoro timer with parameters: timer (required in minutes), rest_time (optional), and task_name (optional).
     Always require explicit time duration. Example inputs:
     - "25 minute pomodoro for coding"
     - "Focus session: 50min work, 10min break"  
     '''
-
-    if not token:
-        return "Error: Authentication token missing"
-
     try:
-        timer = float(params['timer'])
+        # Parse the JSON string
+        params_dict = json.loads(params)
+        
+        # Validate required fields
+        timer = float(params_dict['timer'])
         if timer <= 0:
-            return "Please provide a valid working time duration"
+            return "Error: Invalid duration"
+            
+        rest_time = float(params_dict.get('rest_time', timer/2)) 
+        task_name = params_dict.get('task_name', '')[:50]
         
-        rest_time = float(params.get('rest_time', timer/2))
-        task_name = params.get("task_name", "").strip()[:50] # Lenght limit
-        
-        # Call backend
+        # Pomodoro endpoint call
         response = requests.post(
-            "http://localhost:8000/pomodoro/", 
+            "http://localhost:8000/pomodoro/",
             json={
                 "timer": timer,
                 "rest_time": rest_time,
                 "task_name": task_name
             },
-            headers = {"Authorization": f"Bearer {token}"},
+            headers={"Authorization": f"Bearer {'user_token'}"},
             timeout=10
         )
-
-        if response.status_code == 200:
-            return f"Pomodoro created:  {timer}min work, {rest_time}min rest | {task_name or 'General'}"
-        else:
-            return f"Error while creating pomodoro: {response.text[:150]}"
         
-    except requests.exceptions.RequestException as e:
-        return "Connection error: Couldn't contact server."
-    except ValueError as e:
-        return "Format error: Times must be numbers."
+        return f"Created: {timer}min work, {rest_time}min break | {task_name or 'General'}"
+    
+    except json.JSONDecodeError:
+        return "Error: Invalid parameters format"
+    except KeyError:
+        return "Error: Missing work_duration"
     except Exception as e:
-        return f"Unexpected error: {str(e)[:100]}"
+        return f"Error: {str(e)[:100]}"
 
 tools = [create_pomodoro_tool]
 
@@ -126,7 +123,7 @@ agent_executor = AgentExecutor(
     tools=tools,
     verbose=True,
     handle_parsing_errors=True,#lambda _: "Oops, something went wrong, please rephrase your question.",
-    max_iterations=1, #! Change to 2 when agent works well
+    max_iterations=2,
     #early_stopping_method="generate" # Force generate response even if reaches iteration threshold
 )
 
