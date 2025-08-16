@@ -1,7 +1,9 @@
 import axiosInstance from "./axiosInstance";
 
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
 export const getStudyRecords = async () => {
-  return axiosInstance.get("/my-studies");
+  return axiosInstance.get(`${BACKEND_URL}my-studies`);
 };
 
 export const createStudyRecord = async (data: {

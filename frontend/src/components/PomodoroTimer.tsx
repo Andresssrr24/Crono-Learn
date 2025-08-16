@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createPomodoro, updatePomodoro } from '../services/api/pomodoro';
+import { createPomodoro, pausePomodoro, stopPomodoro, updatePomodoro, resumePomodoro } from '../services/api/pomodoro';
 import { useNavigate } from 'react-router-dom';
 import { CompletedPomodoroNotif } from './partials/CompletedPomodoroNotif';
 
@@ -22,7 +22,7 @@ export function PomodoroTimer({
   const [error, setError] = useState("");
   // Pomodoro customization interface
   const [showCustomization, setShowCustomization] = useState(false);
-  const [customTimer, setCustomTimer] = useState(timer);
+  const [customTimer, setCustomTimer] = useState(timer);      
   const [customRestTime, setCustomRestTime] = useState(rest_time);
   const [customTaskName, setCustomTaskName] = useState(task_name);
 
@@ -105,13 +105,34 @@ export function PomodoroTimer({
             setError(err.message || "Error starting Pomodoro.");
           }
         }
-    } else {
-        // alternate pause/running
-        setIsRunning((prev) => !prev);
+      // Pause pomodoro  
+    } else if (isRunning && pomodoroId) {
+        try {
+          await pausePomodoro(pomodoroId);
+          setIsRunning(false);
+        } catch (err: any) {
+          setError(err.message || "Error pausing Pomodoro");
+        }
+      // Resume pomodoro  
+    } else if (!isRunning && pomodoroId) {
+      try {
+        await resumePomodoro(pomodoroId);
+        setIsRunning(true);
+      } catch (err: any) {
+        setError(err.message || "Error resuming Pomodoro");
+      }
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    if (!pomodoroId) return;
+
+    try {
+      await stopPomodoro(pomodoroId);
+    } catch (err: any) {
+      setError(err.message || "Error stopping Pomodoro.");
+    }
+
     setIsRunning(false);
     setIsWorkMode(true);
     setSecondsLeft(timer);
@@ -167,9 +188,9 @@ export function PomodoroTimer({
 
             if (pomodoroId) {
               try {
-                await updatePomodoro(Number(pomodoroId), {
-                  timer: Math.floor(customTimer),
-                  rest_time: Math.floor(customRestTime),
+                await updatePomodoro(pomodoroId, {
+                  timer: Math.max(1, Math.round(customTimer * 60)),
+                  rest_time: Math.max(1, Math.round(customRestTime * 60)),
                   task_name: customTaskName || undefined,
                 });
               } catch (err: any) {

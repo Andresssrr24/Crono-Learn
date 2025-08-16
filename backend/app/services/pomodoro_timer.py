@@ -9,7 +9,7 @@ class PomodoroTimer:
         self.db = db
         self.user_id = user_id
 
-    async def create_pomodoro(self, rest_time: int, task_name: str, timer: int=25, status: str="scheduled"):
+    async def create_pomodoro(self, rest_time: int, task_name: str, timer: int=25, status: str="running"):
         if timer <= 0:
             raise ValueError("Pomodoro timer has to be greater than 0.")
         if rest_time < 0:
@@ -22,15 +22,16 @@ class PomodoroTimer:
             task_name=task_name,
             worked_time=0,
             last_resume_time=None,
-            user_id=self.user_id
+            user_id=self.user_id,
+            status=status
         )
         self.db.add(new_pomodoro)
         await self.db.commit()
         await self.db.refresh(new_pomodoro)
         return new_pomodoro
 
-    async def stop(self, pomodoro_id: str):
-        pomodoro = await self._get_pomodoro(pomodoro_id)
+    async def stop(self, pomodoro_id: str, user_id: str):
+        pomodoro = await self._get_pomodoro(pomodoro_id, user_id)
 
         if not pomodoro:
             return None
@@ -51,8 +52,8 @@ class PomodoroTimer:
         await self.db.commit()
         return pomodoro
 
-    async def pause(self, pomodoro_id: str):
-        pomodoro = await self._get_pomodoro(pomodoro_id)
+    async def pause(self, pomodoro_id: str, user_id: str):
+        pomodoro = await self._get_pomodoro(pomodoro_id, user_id)
 
         if not pomodoro:
             return None
@@ -73,8 +74,8 @@ class PomodoroTimer:
         await self.db.commit()
         return pomodoro
 
-    async def resume(self, pomodoro_id: str):
-        pomodoro = await self._get_pomodoro(pomodoro_id)
+    async def resume(self, pomodoro_id: str, user_id: str):
+        pomodoro = await self._get_pomodoro(pomodoro_id, user_id)
 
         if not pomodoro:
             return None
@@ -108,5 +109,5 @@ class PomodoroTimer:
         return pomodoro
 
     async def _get_pomodoro(self, pomodoro_id: str, user_id: str):
-        result = await self.db.execute(select(Pomodoro).where(Pomodoro.id == pomodoro_id, Pomodoro.user_id == user_id)) 
+        result = await self.db.execute(select(Pomodoro).where(Pomodoro.id == int(pomodoro_id), Pomodoro.user_id == user_id)) 
         return result.scalar_one_or_none()
