@@ -13,9 +13,11 @@ async def options_handler():
     return
 
 @router.post('/', response_model=PomodoroResponse, status_code=status.HTTP_201_CREATED)
-async def start_pomodoro(data: PomodoroCreate, db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user_id)):
+async def start_pomodoro(data: PomodoroCreate, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db), user_id: str = Depends(get_current_user_id)):
     service = PomodoroTimer(db, user_id=user_id)
     pomodoro = await service.create_pomodoro(rest_time=data.rest_time, task_name=data.task_name, timer=data.timer)
+    # Real time pomodoro update
+    background_tasks.add_task(service.run_pomodoro, pomodoro.id)
 
     return pomodoro
 

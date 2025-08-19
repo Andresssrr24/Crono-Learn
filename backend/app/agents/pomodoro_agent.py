@@ -5,8 +5,6 @@ from langchain_groq import ChatGroq
 from langchain.agents import create_react_agent, AgentExecutor
 from langchain.tools import tool
 from langchain.prompts import PromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
-from langchain.schema.runnable import RunnableParallel, RunnablePassthrough
 from pydantic import BaseModel, Field
 import json
 
@@ -21,7 +19,7 @@ class PomodoroInput(BaseModel):
 prompt_template = """You are Cronos, an expert time management AI assistant. Your role is to recognize and process requests for timed work sessions. 
 
 **Timed session triggers:** 
-- Synonyms: Pomodoro, Timer, Focus/focus session, Work session, Productive session/interval
+- Synonyms: Pomodoro, Timer, Focus/focus session, Work session, Productive session/interval, timed session.
 - Explicit durations (e.g., "25min", "1 hour")
 
 **When detected:**
@@ -83,6 +81,7 @@ def make_create_pomodoro_tool(token: str):
             timer = params_dict.get('timer')
             if timer is None:
                 return "Error: Missing timer duration"
+            
             timer = float(timer) * 60.0
 
             if timer <= 0:
@@ -101,16 +100,16 @@ def make_create_pomodoro_tool(token: str):
                     "task_name": task_name
                 },
                 headers={"Authorization": f"Bearer {token}"},
-                timeout=70
+                timeout=10 
             )
-            response.raise_for_status()
             
-            return f"Created: {timer/60:.0f}min work, {rest_time/60:.0f}min break | {task_name}"
+            response.raise_for_status()
+            data = response.json()
+            
+            return f"Pomodoro created: {data.get('task_name', task_name)} ({data.get('timer', timer/60):.0f}min work / {data.get('rest_time', rest_time/60):.0f}min break)"
         
         except json.JSONDecodeError:
             return "Error: Invalid parameters format"
-        except KeyError:
-            return "Error: Missing work_duration"
         except Exception as e:
             return f"Error: {str(e)[:100]}"
 
@@ -129,7 +128,7 @@ def process_user_message(msg: str, token: str) -> str:
         tools=tools,
         verbose=True,
         handle_parsing_errors=True,#lambda _: "Oops, something went wrong, please rephrase your question.",
-        max_iterations=2,
+        max_iterations=1,
         #early_stopping_method="generate" # Force generate response even if reaches iteration threshold
     )
 

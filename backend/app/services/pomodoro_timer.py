@@ -1,15 +1,15 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models.pomodoro import Pomodoro
 from app.core.auth import get_current_user_id
 from sqlalchemy.future import select
-
+import asyncio
 class PomodoroTimer:
     def __init__(self, db: AsyncSession, user_id: str):
         self.db = db
         self.user_id = user_id
 
-    async def create_pomodoro(self, rest_time: int, task_name: str, timer: int=25, status: str="running"):
+    async def create_pomodoro(self, rest_time: int, task_name: str, timer: int=25, status: str="scheduled"):
         if timer <= 0:
             raise ValueError("Pomodoro timer has to be greater than 0.")
         if rest_time < 0:
@@ -29,6 +29,27 @@ class PomodoroTimer:
         await self.db.commit()
         await self.db.refresh(new_pomodoro)
         return new_pomodoro
+    
+    async def run_pomodoro(self, pomodoro_id: str):
+        result = await self.db.execute(
+            select(Pomodoro).where(Pomodoro.id == pomodoro_id, Pomodoro.user_id == self.user_id)
+        )
+        pomodoro = result.scalar_one_or_none()
+        if not pomodoro:
+            return
+        
+        total_seconds = pomodoro.timer
+        interval = 1 
+        elapsed = 0
+
+        while elapsed < total_seconds:
+            await asyncio.sleep(interval)
+            elapsed += interval
+            pomodoro.worked_time = elapsed
+            await self.db.commit()
+            await self.db.refresh(pomodoro)
+
+        print(f"Pomodoro {pomodoro.id} finished!.")
 
     async def stop(self, pomodoro_id: str, user_id: str):
         pomodoro = await self._get_pomodoro(pomodoro_id, user_id)
