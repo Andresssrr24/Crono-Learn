@@ -1,65 +1,108 @@
-import { useState } from "react";
-import axios from "axios";
+import { useState, useRef } from "react";
+import { supabase } from "../services/supabase";
+import axiosInstance from "../services/api/axiosInstance";
 
-interface AgentResponse {
-  action?: string;
-  timer?: number;
-  task_name?: string;
-  error?: string;
-  raw?: string;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
+
+interface Message {
+  sender: "user" | "agent";
+  text: string;
 }
 
 export function AgentChat() {
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
-  const [response, setResponse] = useState<AgentResponse | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const { data } = await supabase.auth.getSession();
+    if (!prompt.trim()) return;
+
+    setMessages((prev) => [...prev, { sender: "user", text: prompt }]);
     setLoading(true);
-    setResponse(null);
 
     try {
-      const res = await axios.post("http://localhost:8000/agent/", { prompt });
-      setResponse(res.data);
-      
-      // Si la acción es start_pomodoro, aquí podrías llamar directamente
-      // a tu servicio createPomodoro o CompletedPomodoroNotif según tu lógica.
-      if (res.data.action === "start_pomodoro") {
-        console.log("Acción detectada:", res.data);
-        // TODO: ejecutar createPomodoro(...) u otra función
+      const res = await axiosInstance.post(
+        `${BACKEND_URL}agent/`,
+        { prompt: prompt, token: data.session?.access_token },
+        {
+          headers: {
+            Authorization: `Bearer ${data.session?.access_token}`,
+            "Content-Type": "application/json",
+          }
+        }
+      );
+
+      const agentResponse = res.data;
+      const outputText = typeof agentResponse === "string" ? agentResponse : agentResponse.output || "No response from agent"
+      setMessages(prev => [...prev, { sender: "agent", text: outputText}]);
+
+      if (agentResponse.action === "start_pomodoro") {
+        console.log("Pomodoro started with:", agentResponse.params);
+        // TODO: Send toast to alert pomodoro has started
+        // TODO: redirect to /pomodoro
       }
     } catch (err) {
       console.error(err);
+      setMessages((prev) => [...prev, { sender: "agent", text: "There was an error while trying to contact agent" }]);
     } finally {
+      setPrompt("");
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center p-4 max-w-xl mx-auto">
-      <form onSubmit={handleSubmit} className="w-full flex gap-2">
+    <div className="max-w-2xl mx-auto p-4 space-y-4">
+      <div className="h-96 overflow-y-auto bg-gray-50 rounded-lg p-4 space-y-4 shadow-inner border border-gray-200">
+        {messages.length === 0 ? (
+          <div className="text-center text-gray-500 h-full flex items-center justify-center">
+            Start a conversation with your AI agent...
+          </div>
+        ) : (
+          messages.map((msg, idx) => (
+            <div 
+              key={idx} 
+              className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div className={`max-w-xs md:max-w-md rounded-lg px-4 py-2 ${
+                msg.sender === "user" 
+                  ? "bg-emerald-600 text-white" 
+                  : "bg-gray-200 text-gray-800"
+              }`}>
+                <strong>{msg.sender === "user" ? "You" : "Agent"}:</strong> {msg.text}
+              </div>
+            </div>
+          ))
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <form onSubmit={handleSubmit} className="flex space-x-2">
         <input
-          type="text"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Escribe algo (ej: 'Empieza un pomodoro de 25 min de mates')"
-          className="flex-1 border border-gray-400 rounded-lg px-3 py-2"
-        />
-        <button
-          type="submit"
+          placeholder="Ask your agent..."
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           disabled={loading}
-          className="bg-teal-600 text-white px-4 py-2 rounded-lg"
+        />
+        <button 
+          type="submit" 
+          disabled={loading || !prompt.trim()}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300 transition-colors"
         >
-          {loading ? "..." : "Enviar"}
+          {loading ? (
+            <span className="flex items-center">
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Processing...
+            </span>
+          ) : "Send"}
         </button>
       </form>
-
-      {response && (
-        <div className="mt-4 w-full p-3 bg-gray-100 rounded-lg text-sm">
-          <pre>{JSON.stringify(response, null, 2)}</pre>
-        </div>
-      )}
     </div>
   );
 }

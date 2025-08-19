@@ -11,7 +11,7 @@ class Pomodoro(Base):
     timer: Mapped[int] = mapped_column(Integer, nullable=False)
     rest_time: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     start_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
-    end_time: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    end_time: Mapped[datetime] = mapped_column(DateTime, default=None, nullable=True)
     last_resume_time: Mapped[datetime] = mapped_column(DateTime, default=None, nullable=True)
     worked_time: Mapped[int] = mapped_column(Integer, nullable=True)
     completed: Mapped[bool] = mapped_column(Boolean, nullable=True)

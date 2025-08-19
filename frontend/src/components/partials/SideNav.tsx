@@ -56,6 +56,9 @@ export function SideNav() {
                     <li>
                         <Link to="/my-studies" className="block p-2 rounded-lg hover:bg-emerald-900">My studies</Link>
                     </li>
+                    <li>
+                        <Link to="/agent" className="block p-2 rounded-lg hover:bg-emerald-900">Cronos AI</Link>
+                    </li>
                 </ul>
 
                 <ul className="p-4 mt-auto">
