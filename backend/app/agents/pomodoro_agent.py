@@ -15,11 +15,11 @@ class PomodoroInput(BaseModel):
     rest_time: float = Field(None, description="Rest duration in minutes (default: half of work time)")
     task_name: str = Field(None, max_length=50, description="Task description for the pomodoro")
 
-# Dual response prompt template
-prompt_template = """You are Cronos, an expert time management AI assistant. Your role is to recognize and process requests for timed work sessions. 
+prompt_template = """You are Cronos, an expert time management AI assistant. Your role is to recognize and process requests for timed work sessions.
+You will process this requests ONLY with the provided tools. 
 
 **Timed session triggers:** 
-- Synonyms: Pomodoro, Timer, Focus/focus session, Work session, Productive session/interval, timed session.
+- Synonyms: Pomodoro/pomodoro, Timer, Focus/focus session, Work session, Productive session/interval, timed session.
 - Explicit durations (e.g., "25min", "1 hour")
 
 **When detected:**
@@ -27,11 +27,12 @@ prompt_template = """You are Cronos, an expert time management AI assistant. You
    - `timer` (required, in minutes)
    - `rest_time` (optional, in minutes)
    - `task_name` (optional)
-2. If missing core duration: DO NOT use tools, respond politely and continue conversation.
+
+2. If missing timer duration: DO NOT use tools, respond politely and continue conversation.
 
 **Valid examples:**
 - "25min math": {{"timer": 25, "rest_time": 12.5, "task_name": "math"}}
-- "50min Pomodoro with 10min break": {{"timer": 50, "rest_time": 10, "task_name": ""}}
+- "50min pomodoro with 10min break": {{"timer": 50, "rest_time": 10, "task_name": ""}}
 - "No duration specified": {{"timer": null, "rest_time": null, "task_name": "", "response": "[answer politely.]"}}
 
 **Available tools:**
@@ -39,7 +40,7 @@ prompt_template = """You are Cronos, an expert time management AI assistant. You
 Tool names: {tool_names}
 
 **Critical rules:**
-1. **Only use tools when you have a numeric `timer`**
+1. **Only use tools when you have a timer duration**
 2. **Non-tool response format:**
 Thought: I do not need to use tools
 Final Answer: [direct response here]
@@ -50,7 +51,6 @@ Action: [tool_name]
 Action Input: {{"timer": [value], "rest_time": [value|timer/2   ], "task_name": "[text]"}}
 
 **Current interaction**
-Let's start:
 Question: {input}
 Thought: {agent_scratchpad}
 """
@@ -106,7 +106,7 @@ def make_create_pomodoro_tool(token: str):
             response.raise_for_status()
             data = response.json()
             
-            return f"Pomodoro created: {data.get('task_name', task_name)} ({data.get('timer', timer/60):.0f}min work / {data.get('rest_time', rest_time/60):.0f}min break)"
+            return f"Pomodoro started: {task_name} ({data.get('timer', timer)/60.0} min work, {data.get('rest_time', rest_time)/60.0} min rest)"
         
         except json.JSONDecodeError:
             return "Error: Invalid parameters format"
@@ -115,7 +115,7 @@ def make_create_pomodoro_tool(token: str):
 
     return create_pomodoro_tool
 
-def process_user_message(msg: str, token: str) -> str:
+async def process_user_message(msg: str, token: str) -> str:
     tools = [make_create_pomodoro_tool(token)]
     agent = create_react_agent(
         llm=llm,
@@ -127,12 +127,22 @@ def process_user_message(msg: str, token: str) -> str:
         agent=agent,
         tools=tools,
         verbose=True,
-        handle_parsing_errors=True,#lambda _: "Oops, something went wrong, please rephrase your question.",
-        max_iterations=1,
-        #early_stopping_method="generate" # Force generate response even if reaches iteration threshold
+        handle_parsing_errors=lambda _: "Oops, something went wrong, please rephrase your question.",
+        max_iterations=2,
+        early_stopping_method="generate" # Force generate response even if reaches iteration threshold
     )
 
-    return agent_executor.invoke({"input": msg, "token": token})["output"]
+    result = await agent_executor.ainvoke({"input": msg, "token": token})
+    # Ensure answer is text
+    if isinstance(result, dict):
+        if "output" in result:
+            return result["output"]
+        else:
+            return str(result)
+    elif isinstance(result, str):
+        return result
+    else:
+        return str(result)
 
 #for chunk in llm.stream(messages): # ? "stream" AI response
     #print(chunk.text(), end="")

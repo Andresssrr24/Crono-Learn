@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models.pomodoro import Pomodoro
-from app.core.auth import get_current_user_id
 from sqlalchemy.future import select
+from sqlalchemy import update
 import asyncio
 class PomodoroTimer:
     def __init__(self, db: AsyncSession, user_id: str):
@@ -20,36 +20,70 @@ class PomodoroTimer:
             start_time=datetime.now(),
             rest_time=rest_time,
             task_name=task_name,
-            worked_time=0,
+            worked_time=0,  
             last_resume_time=None,
             user_id=self.user_id,
-            status=status
+            status=status,
+            end_time=None,
         )
+
         self.db.add(new_pomodoro)
+        await self.db.flush()
+
+        asyncio.create_task(self.run_pomodoro(new_pomodoro.id))
+
         await self.db.commit()
-        await self.db.refresh(new_pomodoro)
         return new_pomodoro
     
     async def run_pomodoro(self, pomodoro_id: str):
-        result = await self.db.execute(
-            select(Pomodoro).where(Pomodoro.id == pomodoro_id, Pomodoro.user_id == self.user_id)
+        try:
+            result = await self.db.execute(
+                select(Pomodoro).where(Pomodoro.id == pomodoro_id, Pomodoro.user_id == self.user_id)
+            )
+            pomodoro = result.scalar_one_or_none()
+            if not pomodoro:
+                return
+            
+            total_seconds = pomodoro.timer
+            interval = 1 
+            elapsed = 0
+
+            while elapsed < total_seconds:
+                await asyncio.sleep(interval)
+                elapsed += interval
+                
+                await self.update_progress(pomodoro_id, elapsed)
+
+            await self.completed(pomodoro_id)
+
+            print(f"Pomodoro {pomodoro.id} finished!.")
+
+        except Exception as e:
+            await self.failed(pomodoro_id)
+
+    async def update_progress(self, pomodoro_id: str, elapsed: int):
+        '''Update pomodoro progress'''
+        await self.db.execute(
+            update(Pomodoro).where(Pomodoro.id == pomodoro_id).values(worked_time=elapsed)
         )
-        pomodoro = result.scalar_one_or_none()
-        if not pomodoro:
-            return
-        
-        total_seconds = pomodoro.timer
-        interval = 1 
-        elapsed = 0
 
-        while elapsed < total_seconds:
-            await asyncio.sleep(interval)
-            elapsed += interval
-            pomodoro.worked_time = elapsed
-            await self.db.commit()
-            await self.db.refresh(pomodoro)
+        await self.db.commit()
 
-        print(f"Pomodoro {pomodoro.id} finished!.")
+    async def completed(self, pomodoro_id: str):
+        '''When a pomodoro is successfully finished'''
+        await self.db.execute(
+            update(Pomodoro).where(Pomodoro.id == pomodoro_id).values(status='completed', end_time=datetime.now())
+        )
+
+        await self.db.commit()
+
+    async def failed(self, pomodoro_id: str):
+        '''When a pomodoro execution fails'''
+        await self.db.execute(
+            update(Pomodoro).where(Pomodoro.id == pomodoro_id).values(status='failed')
+        )
+
+        await self.db.commit()
 
     async def stop(self, pomodoro_id: str, user_id: str):
         pomodoro = await self._get_pomodoro(pomodoro_id, user_id)

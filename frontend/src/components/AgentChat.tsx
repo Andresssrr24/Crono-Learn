@@ -36,16 +36,14 @@ export function AgentChat() {
       );
 
       const agentResponse = res.data;
-      setMessages(prev => [...prev, { 
-        sender: "agent", 
-        text: typeof agentResponse === "string" ? agentResponse : agentResponse.output || "No response from agent"
-      }]);
+      const outputText = typeof agentResponse === "string" ? agentResponse : agentResponse.output || "No response from agent"
+      setMessages(prev => [...prev, { sender: "agent", text: outputText}]);
 
-
-      if (res.data.action === "start_pomodoro") {
-        console.log("Agent wants to start pomodoro:", res.data);
+      if (agentResponse.action === "start_pomodoro") {
+        console.log("Pomodoro started with:", agentResponse.params);
+        // TODO: Send toast to alert pomodoro has started
+        // TODO: redirect to /pomodoro
       }
-
     } catch (err) {
       console.error(err);
       setMessages((prev) => [...prev, { sender: "agent", text: "There was an error while trying to contact agent" }]);

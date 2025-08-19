@@ -14,7 +14,11 @@ async def agent_endpoint(data: PromptInput, authorization: str = Header(...)):
     token = authorization.split(" ")[1]
 
     try:
-        ans = process_user_message(data.prompt, token)
-        return ans  
+        ans = await process_user_message(data.prompt, token)
+
+        if ans is None or ans == "":
+            return {"output": "Sorry, I couldn't generate an answer in this moment"}
+        
+        return {"output": ans}  
     except Exception as e:
-        return {"error": str(e)}
+        return {"output": f'An error ocurred whille processing your message: {str(e)}'}
