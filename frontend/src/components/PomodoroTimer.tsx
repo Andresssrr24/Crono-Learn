@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { createPomodoro, pausePomodoro, stopPomodoro, updatePomodoro, resumePomodoro } from '../services/api/pomodoro';
+import { createPomodoro, pausePomodoro, stopPomodoro, updatePomodoro, resumePomodoro, getPomodoro } from '../services/api/pomodoro';
 import { useNavigate } from 'react-router-dom';
 import { CompletedPomodoroNotif } from './partials/CompletedPomodoroNotif';
 
@@ -109,6 +109,8 @@ export function PomodoroTimer({
     } else if (isRunning && pomodoroId) {
         try {
           await pausePomodoro(pomodoroId);
+          const updated = await getPomodoro(pomodoroId);
+          setSecondsLeft(updated.timer - updated.worked_time);
           setIsRunning(false);
         } catch (err: any) {
           setError(err.message || "Error pausing Pomodoro");
@@ -117,6 +119,8 @@ export function PomodoroTimer({
     } else if (!isRunning && pomodoroId) {
       try {
         await resumePomodoro(pomodoroId);
+        const updated = await getPomodoro(pomodoroId);
+        setSecondsLeft(updated.timer - updated.worked_time);
         setIsRunning(true);
       } catch (err: any) {
         setError(err.message || "Error resuming Pomodoro");

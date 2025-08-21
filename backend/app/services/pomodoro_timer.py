@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models.pomodoro import Pomodoro
+from app.db.session import AsyncSessionLocal
 from sqlalchemy.future import select
 from sqlalchemy import update
 import asyncio
+
 class PomodoroTimer:
-    def __init__(self, db: AsyncSession, user_id: str):
-        self.db = db
+    def __init__(self, user_id: str):
         self.user_id = user_id
 
     async def create_pomodoro(self, rest_time: int, task_name: str, timer: int=25, status: str="scheduled"):
@@ -15,154 +15,172 @@ class PomodoroTimer:
         if rest_time < 0:
             raise ValueError("Rest timer cannot be negative.")
 
-        new_pomodoro = Pomodoro(
-            timer=timer,
-            start_time=datetime.now(),
-            rest_time=rest_time,
-            task_name=task_name,
-            worked_time=0,  
-            last_resume_time=None,
-            user_id=self.user_id,
-            status=status,
-            end_time=None,
-        )
+        async with AsyncSessionLocal() as db:
+            new_pomodoro = Pomodoro(
+                timer=timer,
+                start_time=datetime.now(),
+                rest_time=rest_time,
+                task_name=task_name,
+                worked_time=0,  
+                last_resume_time=None,
+                user_id=self.user_id,
+                status=status,
+                end_time=None,
+            )
 
-        self.db.add(new_pomodoro)
-        await self.db.flush()
+            db.add(new_pomodoro)
+            await db.flush()
+            await db.commit()
 
         asyncio.create_task(self.run_pomodoro(new_pomodoro.id))
-
-        await self.db.commit()
         return new_pomodoro
     
-    async def run_pomodoro(self, pomodoro_id: str):
+    async def run_pomodoro(self, pomodoro_id: str, status: str="running"):
         try:
-            result = await self.db.execute(
-                select(Pomodoro).where(Pomodoro.id == pomodoro_id, Pomodoro.user_id == self.user_id)
-            )
-            pomodoro = result.scalar_one_or_none()
-            if not pomodoro:
-                return
-            
-            total_seconds = pomodoro.timer
-            interval = 1 
-            elapsed = 0
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(
+                    select(Pomodoro).where(Pomodoro.id == pomodoro_id, Pomodoro.user_id == self.user_id),
+                )
 
-            while elapsed < total_seconds:
-                await asyncio.sleep(interval)
-                elapsed += interval
+                pomodoro = result.scalar_one_or_none()
+                 
+                if not pomodoro:
+                    return
                 
-                await self.update_progress(pomodoro_id, elapsed)
+                pomodoro.status = status
+                total_seconds = pomodoro.timer
+                interval = 1 
+                elapsed = 0
 
-            await self.completed(pomodoro_id)
+                while elapsed < total_seconds:
+                    await asyncio.sleep(interval)
+                    elapsed += interval
+            
+                    await self.update_progress(pomodoro_id, elapsed, status)
 
-            print(f"Pomodoro {pomodoro.id} finished!.")
+                await self.completed(pomodoro_id)
+                print(f"Pomodoro {pomodoro.id} finished!.")
 
-        except Exception as e:
+        except Exception:
             await self.failed(pomodoro_id)
 
-    async def update_progress(self, pomodoro_id: str, elapsed: int):
+    async def update_progress(self, pomodoro_id: str, elapsed: int, status: str):
         '''Update pomodoro progress'''
-        await self.db.execute(
-            update(Pomodoro).where(Pomodoro.id == pomodoro_id).values(worked_time=elapsed)
-        )
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                update(Pomodoro).where(Pomodoro.id == pomodoro_id).values(worked_time=elapsed, status=status)
+            )
 
-        await self.db.commit()
+            await db.commit()
 
     async def completed(self, pomodoro_id: str):
         '''When a pomodoro is successfully finished'''
-        await self.db.execute(
-            update(Pomodoro).where(Pomodoro.id == pomodoro_id).values(status='completed', end_time=datetime.now())
-        )
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                update(Pomodoro).where(Pomodoro.id == pomodoro_id).values(status='completed', end_time=datetime.now())
+            )
 
-        await self.db.commit()
+            await db.commit()
 
     async def failed(self, pomodoro_id: str):
         '''When a pomodoro execution fails'''
-        await self.db.execute(
-            update(Pomodoro).where(Pomodoro.id == pomodoro_id).values(status='failed')
-        )
+        async with AsyncSessionLocal() as db:
+            await db.execute(
+                update(Pomodoro).where(Pomodoro.id == pomodoro_id).values(status='failed')
+            )
 
-        await self.db.commit()
+            await db.commit()
 
     async def stop(self, pomodoro_id: str, user_id: str):
-        pomodoro = await self._get_pomodoro(pomodoro_id, user_id)
+        async with AsyncSessionLocal() as db:
+            pomodoro = await self._get_pomodoro(pomodoro_id, user_id)
 
-        if not pomodoro:
-            return None
-        if pomodoro.completed == True:
-            raise ValueError('Cannot play with a finished pomodoro.')
-        if pomodoro.status == "stopped":
-            raise ValueError('Pomodoro is already stopped.')
-        
-        if pomodoro.status == "running" and pomodoro.last_resume_time:
-            now = datetime.now()
-            elapsed = (now - pomodoro.last_resume_time).total_seconds()
-            pomodoro.worked_time += int(elapsed)
+            if not pomodoro:
+                return None
+            if pomodoro.status == "completed":
+                raise ValueError('Cannot play with a finished pomodoro.')
+            if pomodoro.status == "stopped":
+                raise ValueError('Pomodoro is already stopped.')
+            
+            task = self.running_tasks.get(pomodoro_id)
+            if task and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                self.running_tasks.pop(pomodoro_id, None)
 
-        pomodoro.status = "stopped"
-        pomodoro.last_resume_time = None
+            pomodoro.status = "stopped"
+            pomodoro.worked_time += (datetime.now() - pomodoro.last_resume_time).total_senconds()
+            pomodoro.last_resume_time = None
 
-        self.db.add(pomodoro)
-        await self.db.commit()
+            self._update_db(pomodoro, db)
+
         return pomodoro
 
     async def pause(self, pomodoro_id: str, user_id: str):
-        pomodoro = await self._get_pomodoro(pomodoro_id, user_id)
+        async with AsyncSessionLocal() as db:
+            pomodoro = await self._get_pomodoro(pomodoro_id, user_id)
 
-        if not pomodoro:
-            return None
-        if pomodoro.completed == True:
-            raise ValueError('Cannot play with a finished pomodoro.')
-        if pomodoro.status != "running":
-            raise ValueError("Cannot pause a pomodoro that is not running.")
-        
-        if pomodoro.last_resume_time:
-            now = datetime.now()
-            elapsed = (now - pomodoro.last_resume_time).total_seconds()
-            pomodoro.worked_time += int(elapsed)
+            if not pomodoro:
+                return None
+            if pomodoro.completed == True:
+                raise ValueError('Cannot play with a finished pomodoro.')
+            if pomodoro.status != "running":
+                raise ValueError("Cannot pause a pomodoro that is not running.")
+            
+            if pomodoro.last_resume_time:
+                now = datetime.now()
+                elapsed = (now - pomodoro.last_resume_time).total_seconds()
+                pomodoro.worked_time += round(float(elapsed), 2)
 
-        pomodoro.status = "paused"
-        pomodoro.last_resume_time = None
+            remaining = pomodoro.timer - pomodoro.worked_time
 
-        self.db.add(pomodoro)
-        await self.db.commit()
+            pomodoro.status = "paused"
+            pomodoro.last_resume_time = None
+
+            db.add(pomodoro)
+            await db.commit()
         return pomodoro
 
     async def resume(self, pomodoro_id: str, user_id: str):
-        pomodoro = await self._get_pomodoro(pomodoro_id, user_id)
+        async with AsyncSessionLocal() as db:
+            pomodoro = await self._get_pomodoro(pomodoro_id, user_id)
 
-        if not pomodoro:
-            return None
-        if pomodoro.completed == True:
-            raise ValueError('Cannot play with a finished pomodoro.')
-        if pomodoro.status == "running":
-            raise ValueError('Pomodoro is already running.')
-        if pomodoro.status == "stopped":
-            raise ValueError('Cannot resume a pomodoro that was stopped.')
+            if not pomodoro:
+                return None
+            if pomodoro.completed == True:
+                raise ValueError('Cannot play with a finished pomodoro.')
+            if pomodoro.status == "running":
+                raise ValueError('Pomodoro is already running.')
+            if pomodoro.status == "stopped":
+                raise ValueError('Cannot resume a pomodoro that was stopped.')
 
-        pomodoro.status = "running"
-        pomodoro.last_resume_time = datetime.now()
+            pomodoro.status = "running"
+            pomodoro.last_resume_time = datetime.now()
 
-        self.db.add(pomodoro)
-        await self.db.commit()
+            db.add(pomodoro)
+            await db.commit()
         return pomodoro    
 
     async def extend(self, pomodoro_id: str, add_time: int):
-        pomodoro = await self._get_pomodoro(pomodoro_id)
+        async with AsyncSessionLocal() as db:
+            pomodoro = await self._get_pomodoro(pomodoro_id)
 
-        if not pomodoro:
-            return None
-        if pomodoro.completed == True:
-            raise ValueError('Cannot play with a finished pomodoro.')
-        if pomodoro.status == "stopped":
-            raise ValueError('Cannot extend a pomodoro that was stopped.')
-        
-        pomodoro.timer += add_time.total_seconds()
-        self.db.add(pomodoro)
-        await self.db.commit()
+            if not pomodoro:
+                return None
+            if pomodoro.completed == True:
+                raise ValueError('Cannot play with a finished pomodoro.')
+            if pomodoro.status == "stopped":
+                raise ValueError('Cannot extend a pomodoro that was stopped.')
+            
+            pomodoro.timer += add_time.total_seconds()
+            db.add(pomodoro)
+            await db.commit()
         return pomodoro
 
     async def _get_pomodoro(self, pomodoro_id: str, user_id: str):
-        result = await self.db.execute(select(Pomodoro).where(Pomodoro.id == int(pomodoro_id), Pomodoro.user_id == user_id)) 
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(select(Pomodoro).where(Pomodoro.id == int(pomodoro_id), Pomodoro.user_id == user_id)) 
         return result.scalar_one_or_none()

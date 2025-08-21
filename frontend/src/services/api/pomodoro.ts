@@ -3,6 +3,11 @@ import { supabase } from "../supabase";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+export const getPomodoro = async (pomodoroId: string) => {
+    const res = await axios.get(`${BACKEND_URL}pomodoro/${pomodoroId}`);
+    return res.data;
+};
+
 async function getHeaders() {
     const {
         data: { session },
@@ -55,7 +60,7 @@ export async function updatePomodoro(id: string, updates: Partial<{
     try {
         const headers = await getHeaders();
         const response = await axios.patch(
-            `${BACKEND_URL}/pomodoro/${id}`,
+            `${BACKEND_URL}pomodoro/${id}`,
             updates,
             { headers }            
         );
