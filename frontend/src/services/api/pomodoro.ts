@@ -3,11 +3,6 @@ import { supabase } from "../supabase";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-export const getPomodoro = async (pomodoroId: string) => {
-    const res = await axios.get(`${BACKEND_URL}pomodoro/${pomodoroId}`);
-    return res.data;
-};
-
 async function getHeaders() {
     const {
         data: { session },
@@ -23,6 +18,20 @@ async function getHeaders() {
         "Content-Type": "application/json",
     }
 }
+
+export const getPomodoro = async (pomodoroId: string) => {
+    try {
+        const headers = await getHeaders();
+        const res = await axios.get(
+            `${BACKEND_URL}pomodoro/${pomodoroId}`,
+            { headers }
+        );
+        return res.data
+    } catch (err: any) {
+            const message = err.response?.data?.detail || err.message || "Error getting pomodoro.";
+            throw new Error(message);
+    }
+};
 
 export async function createPomodoro({
     task_name,
