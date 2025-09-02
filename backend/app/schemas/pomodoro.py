@@ -51,6 +51,7 @@ class PomodoroResponse(BaseModel):
     task_name: Optional[str] = None
     status: str = "scheduled"
     user_id: str
+    worked_time: int = 0
 
     class Config:
         orm_mode = True

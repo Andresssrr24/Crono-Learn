@@ -16,6 +16,7 @@ export function PomodoroTimer({
 }: PomodoroTimerProps) {
   const navigate = useNavigate();
   const [isRunning, setIsRunning] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [isWorkMode, setIsWorkMode] = useState(true);
   const [secondsLeft, setSecondsLeft] = useState(timer);
   const [pomodoroId, setPomodoroId] = useState<string | null>(null);
@@ -26,6 +27,17 @@ export function PomodoroTimer({
   const [customRestTime, setCustomRestTime] = useState(rest_time);
   const [customTaskName, setCustomTaskName] = useState(task_name);
 
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log("PomodoroTimer state changed:", {
+      isRunning,
+      isLoading,
+      pomodoroId,
+      secondsLeft,
+      isWorkMode
+    });
+  }, [isRunning, isLoading, pomodoroId, secondsLeft, isWorkMode]);
+
   // change duration when changing mode
   useEffect(() => {
     const newTime = isWorkMode ? customTimer * 60 : customRestTime * 60;
@@ -34,14 +46,24 @@ export function PomodoroTimer({
 
   // timer
   useEffect(() => {
-    if (!isRunning || secondsLeft <= 0) return;
+    // Only run timer when actually running and not loading
+    if (!isRunning || secondsLeft <= 0 || isLoading) return;
+
+    console.log("Starting timer countdown, seconds left:", secondsLeft);
 
     const intervalId = setInterval(() => {
-      setSecondsLeft((prev) => prev - 1);
+      setSecondsLeft((prev) => {
+        const newValue = prev - 1;
+        console.log("Timer tick:", newValue);
+        return newValue;
+      });
     }, 1000);
 
-    return () => clearInterval(intervalId);
-  }, [isRunning, secondsLeft]);
+    return () => {
+      console.log("Clearing timer interval");
+      clearInterval(intervalId);
+    };
+  }, [isRunning, secondsLeft, isLoading]);
 
   {/*// rest or work mode when finished
   useEffect(() => {
@@ -56,22 +78,67 @@ export function PomodoroTimer({
 
   // Manually start timer and rest pauses
   useEffect(() => {
-  if (secondsLeft === 0 && isRunning) {
-    setIsRunning(false);
+    // Only handle timer completion when it's actually running and reaches 0
+    if (secondsLeft === 0 && isRunning && pomodoroId) {
+      console.log("Timer completed, stopping pomodoro");
+      setIsRunning(false);
 
-    if (isWorkMode) {
-      const totalSeconds = customTimer * 60;
-      const workedSeconds = totalSeconds - secondsLeft;
-      let workedMinutes = Math.floor(workedSeconds / 60);
+      if (isWorkMode) {
+        const totalSeconds = customTimer * 60;
+        const workedSeconds = totalSeconds - secondsLeft;
+        let workedMinutes = Math.floor(workedSeconds / 60);
 
-      if (workedMinutes < 1) {
-        workedMinutes = 1;
+        if (workedMinutes < 1) {
+          workedMinutes = 1;
+        }
+
+        CompletedPomodoroNotif(workedMinutes, customTaskName || task_name);
       }
-
-      CompletedPomodoroNotif(workedMinutes, customTaskName || task_name);
     }
-  }
-}, [secondsLeft, isRunning, isWorkMode, customTimer, customTaskName, task_name]);
+  }, [secondsLeft, isRunning, isWorkMode, customTimer, customTaskName, task_name, pomodoroId]);
+
+  // Sync timer state with backend pomodoro status
+  useEffect(() => {
+    if (pomodoroId && !isLoading) {
+      // Periodically check if backend state matches frontend state
+      const syncWithBackend = async () => {
+        try {
+          const pomodoro = await getPomodoro(pomodoroId);
+          const backendIsRunning = pomodoro.status === 'running';
+          const remainingTime = Math.max(0, pomodoro.timer - pomodoro.worked_time);
+
+          console.log("[SYNC] Backend status:", pomodoro.status, "Remaining:", remainingTime);
+          
+          // Update running state
+          if (backendIsRunning !== isRunning) {
+            console.log(`State mismatch → frontend=${isRunning}, backend=${backendIsRunning}`);
+            setIsRunning(backendIsRunning);
+          }
+
+          // always update remaining time to avoid drift
+          if (remainingTime !== secondsLeft) {
+            console.log(`Syncing secondsLeft → frontend=${secondsLeft}, backend=${remainingTime}`);
+            setSecondsLeft(remainingTime);
+          }
+
+          // if backend finished but frontend still running, force to 0
+          if (remainingTime <= 0 && isRunning) {
+            console.log("Backend says pomodoro ended → forcing to 0");
+            setIsRunning(false);
+            setSecondsLeft(0);
+          }
+        } catch (err) {
+          console.error('Failed to check pomodoro status:', err);
+        }
+      };
+      // Initial sync
+      syncWithBackend();
+
+      // Sync every 10 seconds
+      const intervalId = setInterval(syncWithBackend, 10000); // TODO: asjust resume function in backend (restarts timer when resuming)
+      return () => clearInterval(intervalId);
+    }
+  }, [pomodoroId, isRunning, isLoading]);
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
@@ -81,6 +148,9 @@ export function PomodoroTimer({
 
   const handleStartPause = async () => {
     setError("");
+    
+    // Prevent multiple simultaneous calls
+    if (isLoading) return;
 
     if (!isRunning && !pomodoroId) {
         console.log("Creating pomodoro with", {
@@ -107,23 +177,45 @@ export function PomodoroTimer({
         }
       // Pause pomodoro  
     } else if (isRunning && pomodoroId) {
+        console.log("Pausing pomodoro", pomodoroId);
         try {
+          // prevent multiple calls
+          setIsLoading(true);
+          
           await pausePomodoro(pomodoroId);
           const updated = await getPomodoro(pomodoroId);
+          console.log("Worked time:", updated.worked_time, updated.timer);
+          console.log("Pomodoro paused, backend state:", updated);
+          
+          // Update local state to match backend
           setSecondsLeft(updated.timer - updated.worked_time);
           setIsRunning(false);
+          
+          console.log("Pomodoro paused successfully, new seconds left:", updated.timer - updated.worked_time);
         } catch (err: any) {
           setError(err.message || "Error pausing Pomodoro");
+        } finally {
+          setIsLoading(false);
         }
       // Resume pomodoro  
     } else if (!isRunning && pomodoroId) {
+      console.log("Resuming pomodoro", pomodoroId);
       try {
+        // Set loading state to prevent multiple calls
+        setIsLoading(true);
+        
         await resumePomodoro(pomodoroId);
         const updated = await getPomodoro(pomodoroId);
+        
+        // Update local state to match backend
         setSecondsLeft(updated.timer - updated.worked_time);
         setIsRunning(true);
+        
+        console.log("Pomodoro resumed successfully, new seconds left:", updated.timer - updated.worked_time);
       } catch (err: any) {
         setError(err.message || "Error resuming Pomodoro");
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -212,13 +304,25 @@ export function PomodoroTimer({
       <div className="flex gap-4 mt-4">
         <button
           onClick={handleStartPause}
-          className="bg-emerald-700 hover:bg-emerald-600 px-4 py-2 rounded-lg"
+          disabled={isLoading}
+          className={`px-4 py-2 rounded-lg ${
+            isLoading 
+              ? 'bg-gray-500 cursor-not-allowed' 
+              : isRunning 
+                ? 'bg-emerald-700 hover:bg-emerald-600' 
+                : 'bg-emerald-700 hover:bg-emerald-600'
+          }`}
         >
-             {isRunning ? 'Pause' : 'Start'}
+             {isLoading ? 'Loading...' : isRunning ? 'Pause' : 'Start'}
         </button>
         <button
           onClick={handleReset}
-          className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg"
+          disabled={isLoading}
+          className={`px-4 py-2 rounded-lg ${
+            isLoading 
+              ? 'bg-gray-500 cursor-not-allowed' 
+              : 'bg-red-600 hover:bg-red-500'
+          }`}
         >
           Reset
         </button>
