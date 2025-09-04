@@ -21,6 +21,7 @@ export function PomodoroTimer({
   const [secondsLeft, setSecondsLeft] = useState(timer);
   const [pomodoroId, setPomodoroId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [isCompleted, setIsCompleted] = useState(false);
   // Pomodoro customization interface
   const [showCustomization, setShowCustomization] = useState(false);
   const [customTimer, setCustomTimer] = useState(timer);      
@@ -96,10 +97,26 @@ export function PomodoroTimer({
       }
     }
   }, [secondsLeft, isRunning, isWorkMode, customTimer, customTaskName, task_name, pomodoroId]);
+  // Mark as completed when timer hits 0
+  useEffect(() => {
+    if (secondsLeft === 0 && !isRunning && pomodoroId) {
+      console.log("Pomodoro completed in frontend");
+      setIsRunning(false);
+      setIsCompleted(true);
+
+      if (isWorkMode) {
+        const totalSeconds = customTimer * 60;
+        let workedMinutes = Math.floor(totalSeconds / 60);
+        if (workedMinutes < 1) workedMinutes = 1;
+        CompletedPomodoroNotif(workedMinutes, customTaskName || task_name);
+      }
+    }
+  }, [secondsLeft, isCompleted, isWorkMode, customTimer, customTaskName, task_name]);
 
   // Sync timer state with backend pomodoro status
+  // TODO: Test this (after finishing, shouldn't do any other request to backend)
   useEffect(() => {
-    if (pomodoroId && !isLoading) {
+    if (!pomodoroId || isLoading || isCompleted) return;
       // Periodically check if backend state matches frontend state
       const syncWithBackend = async () => {
         try {
@@ -132,13 +149,12 @@ export function PomodoroTimer({
         }
       };
       // Initial sync
-      syncWithBackend();
+      //syncWithBackend();
 
       // Sync every 10 seconds
-      const intervalId = setInterval(syncWithBackend, 10000); // TODO: asjust resume function in backend (restarts timer when resuming)
+      const intervalId = setInterval(syncWithBackend, 10000); 
       return () => clearInterval(intervalId);
-    }
-  }, [pomodoroId, isRunning, isLoading]);
+  }, [pomodoroId, isRunning, isLoading, secondsLeft, isCompleted]);
 
   const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);

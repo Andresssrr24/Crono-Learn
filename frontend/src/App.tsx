@@ -7,6 +7,7 @@ import { SignUpPage } from "./pages/SignUp";
 import { StudiesPage } from "./pages/StudiesPage";
 import { Toaster } from "react-hot-toast";
 import { AgentPage } from "./pages/AgentPage";
+import { PomodoroProvider } from "./context/PomodoroContext";
 
 function AppContent() {
   const location = useLocation();
@@ -36,7 +37,9 @@ function AppContent() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AppContent />
+      <PomodoroProvider>
+        <AppContent />
+      </PomodoroProvider>
     </BrowserRouter>
   );
 }
